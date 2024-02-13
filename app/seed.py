@@ -1,49 +1,57 @@
+from flask import Flask
+from faker import Faker
 import random
-from app import app, db
-from models import db, Power, Hero, HeroPower
+from sqlalchemy.orm import sessionmaker
+from models import Hero, Power, Hero_Power, db
 
-app.app_context().push()
+app = Flask(__name__)
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///app.db'  # Adjust the URI based on your database setup
+db.init_app(app)
 
-print("🦸‍♀️ Seeding powers...")
-powers = [
-    {"name": "super strength", "description": "gives the wielder super-human strengths"},
-    {"name": "flight", "description": "gives the wielder the ability to fly through the skies at supersonic speed"},
-    {"name": "super human senses", "description": "allows the wielder to use her senses at a super-human level"},
-    {"name": "elasticity", "description": "can stretch the human body to extreme lengths"}
-]
-for power_data in powers:
-    power = Power(name=power_data["name"], description=power_data["description"])
-    db.session.add(power)
+if __name__ == '__main__':
+    with app.app_context():
+        # Use the Flask-SQLAlchemy engine from the app
+        engine = db.engine
 
-print("🦸‍♀️ Seeding heroes...")
-heroes = [
-    {"name": "Kamala Khan", "super_name": "Ms. Marvel"},
-    {"name": "Doreen Green", "super_name": "Squirrel Girl"},
-    {"name": "Gwen Stacy", "super_name": "Spider-Gwen"},
-    {"name": "Janet Van Dyne", "super_name": "The Wasp"},
-    {"name": "Wanda Maximoff", "super_name": "Scarlet Witch"},
-    {"name": "Carol Danvers", "super_name": "Captain Marvel"},
-    {"name": "Jean Grey", "super_name": "Dark Phoenix"},
-    {"name": "Ororo Munroe", "super_name": "Storm"},
-    {"name": "Kitty Pryde", "super_name": "Shadowcat"},
-    {"name": "Elektra Natchios", "super_name": "Elektra"}
-]
-for hero_data in heroes:
-    hero = Hero(name=hero_data["name"], super_name=hero_data["super_name"])
-    db.session.add(hero)
+        # Create a session using the Flask-SQLAlchemy sessionmaker
+        Session = sessionmaker(bind=engine)
+        session = Session()
 
-print("🦸‍♀️ Adding powers to heroes...")
-strengths = ["Strong", "Weak", "Average"]
-heroes = Hero.query.all()
-powers = Power.query.all()
-for hero in heroes:
-    num_powers = random.randint(1, 3)
-    for _ in range(num_powers):
-        power = random.choice(powers)
-        strength = random.choice(strengths)
-        hero_power = HeroPower(hero=hero, power=power, strength=strength)
-        db.session.add(hero_power)
+        # Delete existing data
+        session.query(Hero).delete()
+        session.query(Power).delete()
+        session.query(Hero_Power).delete()
+        session.commit()
 
-db.session.commit()
+        fake = Faker()
 
-print("🦸‍♀️ Done seeding!")
+        # Create and commit heroes
+        heroes = [
+            Hero(name=fake.name(), super_name=fake.name())
+            for _ in range(50)
+        ]
+        session.bulk_save_objects(heroes)
+        session.commit()
+
+        # Create and commit powers
+        powers = [
+            Power(name=fake.word())
+            for _ in range(12)
+        ]
+        session.bulk_save_objects(powers)
+        session.commit()
+
+        # Create hero_powers
+        hero_powers = []
+        for hero in heroes:
+            for _ in range(random.randint(1, 3)):
+                power = random.choice(powers)
+                hero_power = Hero_Power(
+                    power=power,
+                    hero=hero,
+                    strength=fake.word()
+                )
+                session.add(hero_power)
+                session.commit()
+
+        session.close()
