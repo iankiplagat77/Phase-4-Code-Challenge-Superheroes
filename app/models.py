@@ -70,3 +70,4 @@ class Hero_Power(db.Model):
             'hero': self.hero.to_dict(visited),
             'power': self.power.to_dict(visited)
         }
+    
